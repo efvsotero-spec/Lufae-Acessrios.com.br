@@ -1,0 +1,8 @@
+{
+  "name": "Lufae Acessórios",
+  "description": "Realce sua beleza e sofisticação com peças feitas para brilhar em todas as ocasiões.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
