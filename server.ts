@@ -22,10 +22,12 @@ app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Paths
-const DATA_DIR = path.resolve('data');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || 'data');
 const STORE_FILE = path.join(DATA_DIR, 'store.json');
 const AUTH_FILE = path.join(DATA_DIR, 'auth.json');
-const UPLOADS_DIR = path.resolve('public/uploads');
+const UPLOADS_DIR = path.resolve(
+  process.env.UPLOADS_DIR || path.join('public', 'uploads')
+);
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -414,20 +416,31 @@ app.post('/api/admin/upload-image', requireAuth, (req: Request, res: Response) =
       return res.status(400).json({ error: 'Formato base64 inválido.' });
     }
 
-    const mimeType = matches[1];
+    const mimeType = matches[1].toLowerCase();
+    const allowedMimeTypes: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+    };
+    const extension = allowedMimeTypes[mimeType];
+    if (!extension) {
+      return res.status(400).json({ error: 'Use uma imagem JPG, PNG ou WebP.' });
+    }
+
     const buffer = Buffer.from(matches[2], 'base64');
 
-    if (buffer.length > 10 * 1024 * 1024) {
+    if (buffer.length === 0 || buffer.length > 10 * 1024 * 1024) {
       return res.status(400).json({ error: 'Arquivo excede o limite máximo de 10MB.' });
     }
 
-    const ext = path.extname(filename) || (mimeType === 'image/png' ? '.png' : '.webp');
-    const safeName = `${Date.now()}-${path.basename(filename, ext).replace(/[^a-zA-Z0-9_-]/g, '')}${ext}`;
+    const originalName = path.parse(String(filename)).name;
+    const safeBaseName = originalName.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'imagem';
+    const safeName = `${Date.now()}-${safeBaseName}${extension}`;
     const filePath = path.join(UPLOADS_DIR, safeName);
 
     fs.writeFileSync(filePath, buffer);
 
-    const publicUrl = `/uploads/${safeName}`;
+    const publicUrl = `/uploads/${encodeURIComponent(safeName)}`;
     res.json({ success: true, url: publicUrl, filename: safeName });
   } catch (err: any) {
     console.error('Upload error:', err);
